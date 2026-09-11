@@ -30,7 +30,7 @@ public struct NarrativeBuilder {
                 firstAccent: websiteHost,
                 middle: " — \(websiteTitle) — in ",
                 secondAccent: browserName,
-                suffix: " for \(duration). You’ve switched context \(snapshot.contextSwitchCount) times this session."
+                suffix: " for \(duration)."
             )
         }
 
@@ -40,7 +40,7 @@ public struct NarrativeBuilder {
             firstAccent: snapshot.appName,
             middle: "\(window) for ",
             secondAccent: duration,
-            suffix: ". You’ve switched context \(snapshot.contextSwitchCount) times this session."
+            suffix: "."
         )
     }
 }
