@@ -7,7 +7,10 @@ final class ActivityMonitor {
     var isMonitoring = true {
         didSet {
             if isMonitoring {
+                startTimers()
                 refreshContext()
+            } else {
+                stopTimers()
             }
         }
     }
@@ -17,8 +20,9 @@ final class ActivityMonitor {
     var onNarrativeChange: ((NarrativeContent) -> Void)?
 
     private let narrativeBuilder = NarrativeBuilder()
-    private var contextTimer: Timer?
+    private var browserPollTimer: Timer?
     private var heartbeatTimer: Timer?
+    private let accessibilityObserver = AccessibilityContextObserver()
     private var workspaceObserver: NSObjectProtocol?
     private var previousIdentity: ActivityIdentity?
     private var activityStartedAt = Date()
@@ -35,16 +39,6 @@ final class ActivityMonitor {
         snapshot = initialSnapshot
         narrative = narrativeBuilder.build(from: initialSnapshot, at: initialDate)
 
-        contextTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.refreshContext()
-            }
-        }
-        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateNarrative()
-            }
-        }
         workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -54,14 +48,57 @@ final class ActivityMonitor {
                 self?.refreshContext()
             }
         }
+        accessibilityObserver.onContextChange = { [weak self] in
+            self?.refreshContext()
+        }
+        startTimers()
         refreshContext()
     }
 
     deinit {
-        contextTimer?.invalidate()
+        browserPollTimer?.invalidate()
         heartbeatTimer?.invalidate()
         if let workspaceObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
+        }
+    }
+
+    private func startTimers() {
+        guard heartbeatTimer == nil else { return }
+
+        heartbeatTimer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateNarrative()
+            }
+        }
+        heartbeatTimer?.tolerance = 0.25
+        if let heartbeatTimer {
+            RunLoop.main.add(heartbeatTimer, forMode: .common)
+        }
+    }
+
+    private func stopTimers() {
+        browserPollTimer?.invalidate()
+        browserPollTimer = nil
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+        accessibilityObserver.stop()
+    }
+
+    private func updateBrowserPolling(for context: ActivityContext) {
+        let isBrowserActive = context.browserContext != nil
+        if isBrowserActive, browserPollTimer == nil {
+            let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.refreshContext()
+                }
+            }
+            timer.tolerance = 5
+            browserPollTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        } else if !isBrowserActive {
+            browserPollTimer?.invalidate()
+            browserPollTimer = nil
         }
     }
 
@@ -69,6 +106,9 @@ final class ActivityMonitor {
         guard isMonitoring else { return }
 
         let context = ActivityContextReader.read()
+        if let application = NSWorkspace.shared.frontmostApplication {
+            accessibilityObserver.observe(application: application)
+        }
         let identity = ActivityIdentity(
             appName: context.appName,
             windowTitle: context.windowTitle,
@@ -76,6 +116,7 @@ final class ActivityMonitor {
             websiteTitle: context.browserContext?.title
         )
 
+        updateBrowserPolling(for: context)
         if previousIdentity == identity {
             return
         }

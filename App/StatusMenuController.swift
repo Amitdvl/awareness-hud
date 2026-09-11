@@ -29,9 +29,11 @@ final class StatusMenuController: NSObject {
         menu.items.forEach { $0.target = self }
         statusItem.menu = menu
 
-        monitor.onNarrativeChange = { [weak self] narrative in
-            self?.activityItem.title = narrative.firstAccent
-        }
+        update(with: monitor.narrative)
+    }
+
+    func update(with narrative: NarrativeContent) {
+        activityItem.title = narrative.firstAccent
     }
 
     @objc private func toggleMonitoring() {

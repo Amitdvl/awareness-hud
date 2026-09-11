@@ -29,8 +29,8 @@ Use `./script/build_and_run.sh --verify` to build, launch, and confirm the app p
 - Chrome and Safari active website tracking via local AppleScript
 - Compact always-visible narrative rendering
 - AppKit-only runtime surface for lower resident memory and fewer view invalidations
-- Event-driven app switching with a 2-second browser/window fallback poll
-- One-second elapsed-time heartbeat with cached context
+- Event-driven app/window switching with a coalesced 10-second Chrome/Safari fallback poll
+- One-second elapsed-time heartbeat with cached context and coalescing tolerance
 - Core formatter tests
 
 Upcoming work includes persistent local history, idle/sleep handling, preferences, browser permission guidance, and a polished onboarding flow.
