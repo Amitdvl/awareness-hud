@@ -4,12 +4,15 @@ import AwarenessCore
 @MainActor
 final class StatusMenuController: NSObject {
     private let monitor: ActivityMonitor
+    private weak var hudController: HUDWindowController?
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let activityItem = NSMenuItem(title: "Starting up", action: nil, keyEquivalent: "")
     private let monitoringItem = NSMenuItem(title: "Monitoring", action: #selector(toggleMonitoring), keyEquivalent: "")
+    private let moveItem = NSMenuItem(title: "Move HUD", action: #selector(toggleMoveMode), keyEquivalent: "")
 
-    init(monitor: ActivityMonitor) {
+    init(monitor: ActivityMonitor, hudController: HUDWindowController) {
         self.monitor = monitor
+        self.hudController = hudController
         super.init()
 
         statusItem.button?.image = NSImage(systemSymbolName: "eye.circle", accessibilityDescription: "Awareness")
@@ -23,6 +26,7 @@ final class StatusMenuController: NSObject {
         menu.addItem(activityItem)
         menu.addItem(.separator())
         menu.addItem(monitoringItem)
+        menu.addItem(moveItem)
         menu.addItem(NSMenuItem(title: "Open Accessibility Settings", action: #selector(openAccessibilitySettings), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Awareness", action: #selector(quit), keyEquivalent: "q"))
@@ -34,6 +38,13 @@ final class StatusMenuController: NSObject {
 
     func update(with narrative: NarrativeContent) {
         activityItem.title = narrative.firstAccent
+    }
+
+    @objc private func toggleMoveMode() {
+        let enabled = moveItem.state != .on
+        hudController?.setMoveMode(enabled)
+        moveItem.state = enabled ? .on : .off
+        moveItem.title = enabled ? "Stop Moving HUD" : "Move HUD"
     }
 
     @objc private func toggleMonitoring() {

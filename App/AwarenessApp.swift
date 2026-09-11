@@ -19,7 +19,7 @@ final class AwarenessApp: NSObject, NSApplicationDelegate {
 
         let hud = HUDWindowController()
         hudController = hud
-        let statusMenu = StatusMenuController(monitor: monitor)
+        let statusMenu = StatusMenuController(monitor: monitor, hudController: hud)
         statusMenuController = statusMenu
         monitor.onNarrativeChange = { [weak hud, weak statusMenu] narrative in
             hud?.update(with: narrative)

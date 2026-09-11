@@ -4,6 +4,11 @@ import AwarenessCore
 final class HUDContentView: NSView {
     private let label = NSTextField(labelWithString: "Starting up")
     private let accentColor = NSColor(red: 0.62, green: 0.60, blue: 1.0, alpha: 1.0)
+    private let bodyColor = NSColor.white.withAlphaComponent(0.82)
+    private let horizontalPadding: CGFloat = 36
+    private let verticalPadding: CGFloat = 20
+    private let minimumWidth: CGFloat = 280
+    private let maximumWidth: CGFloat = 720
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -14,10 +19,13 @@ final class HUDContentView: NSView {
         layer?.borderWidth = 1
 
         label.font = NSFont.systemFont(ofSize: 15, weight: .medium)
-        label.textColor = NSColor.white.withAlphaComponent(0.82)
+        label.textColor = bodyColor
         label.alignment = .left
         label.maximumNumberOfLines = 2
-        label.lineBreakMode = .byTruncatingTail
+        label.lineBreakMode = .byWordWrapping
+        label.isSelectable = false
+        label.isEditable = false
+        label.refusesFirstResponder = true
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
 
@@ -34,12 +42,40 @@ final class HUDContentView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(with narrative: NarrativeContent) {
-        let attributed = NSMutableAttributedString(string: narrative.prefix)
-        attributed.append(NSAttributedString(string: narrative.firstAccent, attributes: [.foregroundColor: accentColor]))
-        attributed.append(NSAttributedString(string: narrative.middle))
-        attributed.append(NSAttributedString(string: narrative.secondAccent, attributes: [.foregroundColor: accentColor]))
-        attributed.append(NSAttributedString(string: narrative.suffix))
+    @discardableResult
+    func update(with narrative: NarrativeContent) -> NSSize {
+        let font = label.font ?? NSFont.systemFont(ofSize: 15, weight: .medium)
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: bodyColor
+        ]
+        let accentAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: accentColor
+        ]
+        let attributed = NSMutableAttributedString(string: narrative.prefix, attributes: bodyAttributes)
+        attributed.append(NSAttributedString(string: narrative.firstAccent, attributes: accentAttributes))
+        attributed.append(NSAttributedString(string: narrative.middle, attributes: bodyAttributes))
+        attributed.append(NSAttributedString(string: narrative.secondAccent, attributes: accentAttributes))
+        attributed.append(NSAttributedString(string: narrative.suffix, attributes: bodyAttributes))
         label.attributedStringValue = attributed
+
+        let naturalWidth = ceil((attributed.string as NSString).size(withAttributes: [.font: font]).width)
+        let width = min(maximumWidth, max(minimumWidth, naturalWidth + horizontalPadding))
+        let textRect = attributed.boundingRect(
+            with: NSSize(width: width - horizontalPadding, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        )
+        let lineHeight = ceil(font.boundingRectForFont.height)
+        let height = min(verticalPadding + lineHeight * 2, max(verticalPadding + lineHeight, ceil(textRect.height) + verticalPadding))
+        return NSSize(width: width, height: height)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
     }
 }
