@@ -1,13 +1,29 @@
-import SwiftUI
+import AppKit
 
 @main
-struct AwarenessApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+@MainActor
+final class AwarenessApp: NSObject, NSApplicationDelegate {
+    private let monitor = ActivityMonitor()
+    private var hudController: HUDWindowController?
+    private var statusMenuController: StatusMenuController?
 
-    var body: some Scene {
-        MenuBarExtra("Awareness", systemImage: "eye.circle") {
-            MenuBarContent(monitor: appDelegate.monitor)
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = AwarenessApp()
+        application.delegate = delegate
+        application.run()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+
+        let hud = HUDWindowController()
+        hudController = hud
+        statusMenuController = StatusMenuController(monitor: monitor)
+        monitor.onNarrativeChange = { [weak hud] narrative in
+            hud?.update(with: narrative)
         }
-        .menuBarExtraStyle(.window)
+        hud.showHUD()
+        hud.update(with: monitor.narrative)
     }
 }

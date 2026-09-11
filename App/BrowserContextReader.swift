@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-struct BrowserContext: Equatable {
+struct BrowserContext: Equatable, Sendable {
     let browserName: String
     let title: String?
     let url: String?
@@ -9,6 +9,20 @@ struct BrowserContext: Equatable {
 }
 
 enum BrowserContextReader {
+    private static let chromeScript = """
+    tell application "Google Chrome"
+        if (count of windows) = 0 then return {"", ""}
+        return {URL of active tab of front window, title of active tab of front window}
+    end tell
+    """
+
+    private static let safariScript = """
+    tell application "Safari"
+        if (count of windows) = 0 then return {"", ""}
+        return {URL of front document, name of front document}
+    end tell
+    """
+
     static func read(for application: NSRunningApplication) -> BrowserContext? {
         switch application.bundleIdentifier {
         case "com.google.Chrome":
@@ -21,23 +35,11 @@ enum BrowserContextReader {
     }
 
     private static func readChrome() -> BrowserContext? {
-        let script = """
-        tell application "Google Chrome"
-            if (count of windows) = 0 then return {"", ""}
-            return {URL of active tab of front window, title of active tab of front window}
-        end tell
-        """
-        return execute(script: script, browserName: "Chrome")
+        execute(script: chromeScript, browserName: "Chrome")
     }
 
     private static func readSafari() -> BrowserContext? {
-        let script = """
-        tell application "Safari"
-            if (count of windows) = 0 then return {"", ""}
-            return {URL of front document, name of front document}
-        end tell
-        """
-        return execute(script: script, browserName: "Safari")
+        execute(script: safariScript, browserName: "Safari")
     }
 
     private static func execute(script: String, browserName: String) -> BrowserContext? {

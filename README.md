@@ -16,16 +16,21 @@ Window titles require macOS Accessibility permission. Chrome and Safari website 
 ./script/build_and_run.sh
 ```
 
+The run script uses a release build by default to keep the resident HUD small and efficient. Set `BUILD_CONFIGURATION=debug` when iterating on code.
+
 Use `./script/build_and_run.sh --verify` to build, launch, and confirm the app process is running.
 
 ## Current status
 
-- Native SwiftUI/AppKit HUD
+- Native AppKit HUD
 - Menu-bar app
 - Active application tracking
 - Accessibility-backed focused-window title tracking
 - Chrome and Safari active website tracking via local AppleScript
-- Local narrative rendering
+- Compact always-visible narrative rendering
+- AppKit-only runtime surface for lower resident memory and fewer view invalidations
+- Event-driven app switching with a 2-second browser/window fallback poll
+- One-second elapsed-time heartbeat with cached context
 - Core formatter tests
 
 Upcoming work includes persistent local history, idle/sleep handling, preferences, browser permission guidance, and a polished onboarding flow.

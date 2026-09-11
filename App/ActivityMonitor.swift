@@ -1,51 +1,71 @@
 import AppKit
 import AwarenessCore
-import Combine
 import Foundation
 
 @MainActor
-final class ActivityMonitor: ObservableObject {
-    @Published var isMonitoring = true {
+final class ActivityMonitor {
+    var isMonitoring = true {
         didSet {
             if isMonitoring {
-                refresh()
+                refreshContext()
             }
         }
     }
 
-    @Published private(set) var snapshot: ActivitySnapshot
+    private(set) var snapshot: ActivitySnapshot
+    private(set) var narrative: NarrativeContent
+    var onNarrativeChange: ((NarrativeContent) -> Void)?
 
     private let narrativeBuilder = NarrativeBuilder()
-    private var timer: Timer?
+    private var contextTimer: Timer?
+    private var heartbeatTimer: Timer?
+    private var workspaceObserver: NSObjectProtocol?
     private var previousIdentity: ActivityIdentity?
     private var activityStartedAt = Date()
     private var contextSwitchCount = 0
 
     init() {
-        snapshot = ActivitySnapshot(
+        let initialDate = Date()
+        let initialSnapshot = ActivitySnapshot(
             appName: "Starting up",
-            activityStartedAt: activityStartedAt,
+            activityStartedAt: initialDate,
             contextSwitchCount: 0,
-            capturedAt: activityStartedAt
+            capturedAt: initialDate
         )
+        snapshot = initialSnapshot
+        narrative = narrativeBuilder.build(from: initialSnapshot, at: initialDate)
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        contextTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.refresh()
+                self?.refreshContext()
             }
         }
-        refresh()
+        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateNarrative()
+            }
+        }
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshContext()
+            }
+        }
+        refreshContext()
     }
 
     deinit {
-        timer?.invalidate()
+        contextTimer?.invalidate()
+        heartbeatTimer?.invalidate()
+        if let workspaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
+        }
     }
 
-    var narrative: String {
-        narrativeBuilder.build(from: snapshot)
-    }
-
-    func refresh() {
+    private func refreshContext() {
         guard isMonitoring else { return }
 
         let context = ActivityContextReader.read()
@@ -56,14 +76,17 @@ final class ActivityMonitor: ObservableObject {
             websiteTitle: context.browserContext?.title
         )
 
-        if let previousIdentity, previousIdentity != identity {
+        if previousIdentity == identity {
+            return
+        }
+
+        if previousIdentity != nil {
             contextSwitchCount += 1
-            activityStartedAt = Date()
-        } else if previousIdentity == nil {
             activityStartedAt = Date()
         }
         previousIdentity = identity
 
+        let capturedAt = Date()
         snapshot = ActivitySnapshot(
             appName: context.appName,
             windowTitle: context.windowTitle,
@@ -73,8 +96,19 @@ final class ActivityMonitor: ObservableObject {
             websiteURL: context.browserContext?.url,
             activityStartedAt: activityStartedAt,
             contextSwitchCount: contextSwitchCount,
-            capturedAt: Date()
+            capturedAt: capturedAt
         )
+        narrative = narrativeBuilder.build(from: snapshot, at: capturedAt)
+        onNarrativeChange?(narrative)
+    }
+
+    private func updateNarrative() {
+        guard isMonitoring else { return }
+        let nextNarrative = narrativeBuilder.build(from: snapshot, at: Date())
+        if nextNarrative != narrative {
+            narrative = nextNarrative
+            onNarrativeChange?(narrative)
+        }
     }
 }
 

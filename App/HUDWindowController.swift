@@ -1,31 +1,26 @@
 import AppKit
-import SwiftUI
+import AwarenessCore
 
 final class HUDWindowController: NSWindowController {
-    init(monitor: ActivityMonitor) {
-        let view = AwarenessHUDView(monitor: monitor)
-        let hostingView = NSHostingView(rootView: view)
+    init() {
+        let contentView = HUDContentView(frame: NSRect(x: 0, y: 0, width: 520, height: 76))
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 860, height: 150),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 76),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
-        panel.contentView = hostingView
-        hostingView.frame = panel.contentView?.bounds ?? .zero
-        hostingView.autoresizingMask = [.width, .height]
+        panel.contentView = contentView
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.hidesOnDeactivate = false
-        panel.isMovableByWindowBackground = true
         panel.hasShadow = true
         panel.ignoresMouseEvents = true
 
         super.init(window: panel)
-        panel.setContentSize(NSSize(width: 820, height: 150))
     }
 
     @available(*, unavailable)
@@ -44,5 +39,9 @@ final class HUDWindowController: NSWindowController {
             window.setFrameTopLeftPoint(topLeft)
         }
         window.orderFrontRegardless()
+    }
+
+    func update(with narrative: NarrativeContent) {
+        (window?.contentView as? HUDContentView)?.update(with: narrative)
     }
 }
