@@ -102,12 +102,12 @@ final class ActivityMonitor {
     private func updateBrowserPolling(for context: ActivityContext) {
         let isBrowserActive = context.browserContext != nil
         if isBrowserActive, browserPollTimer == nil {
-            let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
+            let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
                 Task { @MainActor in
                     self?.refreshContext()
                 }
             }
-            timer.tolerance = 5
+            timer.tolerance = 0.1
             browserPollTimer = timer
             RunLoop.main.add(timer, forMode: .common)
         } else if !isBrowserActive {
