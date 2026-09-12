@@ -31,7 +31,7 @@ Use `./script/build_and_run.sh --verify` to build, launch, and confirm the app p
 - Content-sized HUD with persisted position and menu-bar Move HUD mode
 - AppKit-only runtime surface for lower resident memory and fewer view invalidations
 - Event-driven app/window switching with a coalesced 10-second Chrome/Safari fallback poll
-- One-second elapsed-time heartbeat with cached context and coalescing tolerance
+- Smooth, second-accurate elapsed-time updates from a lightweight 250 ms main-queue heartbeat
 - Per-app foreground time that accumulates throughout the local calendar day and resets at midnight
 - Core formatter tests
 

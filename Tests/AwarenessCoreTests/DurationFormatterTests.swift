@@ -10,7 +10,7 @@ final class DurationFormatterTests: XCTestCase {
         XCTAssertEqual(DurationFormatter.short(125), "2m 5s")
     }
 
-    func testFormatsHoursAndMinutes() {
-        XCTAssertEqual(DurationFormatter.short(3_725), "1h 2m")
+    func testFormatsHoursMinutesAndSeconds() {
+        XCTAssertEqual(DurationFormatter.short(3_725), "1h 2m 5s")
     }
 }

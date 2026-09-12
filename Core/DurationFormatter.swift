@@ -8,7 +8,7 @@ public enum DurationFormatter {
         let seconds = totalSeconds % 60
 
         if hours > 0 {
-            return "\(hours)h \(minutes)m"
+            return "\(hours)h \(minutes)m \(seconds)s"
         }
         if minutes > 0 {
             return "\(minutes)m \(seconds)s"

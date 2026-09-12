@@ -21,7 +21,7 @@ final class ActivityMonitor {
 
     private let narrativeBuilder = NarrativeBuilder()
     private var browserPollTimer: Timer?
-    private var heartbeatTimer: Timer?
+    private var heartbeatTimer: DispatchSourceTimer?
     private let accessibilityObserver = AccessibilityContextObserver()
     private var workspaceObserver: NSObjectProtocol?
     private var previousIdentity: ActivityIdentity?
@@ -29,6 +29,7 @@ final class ActivityMonitor {
     private var contextSwitchCount = 0
     private var dailyTimeAccumulator: DailyAppTimeAccumulator
     private var lastPersistedAt: Date
+    private var lastRenderedDurationSecond: Int?
 
     private static let dailyTimeStateKey = "Awareness.DailyAppTimeState"
 
@@ -66,7 +67,7 @@ final class ActivityMonitor {
 
     deinit {
         browserPollTimer?.invalidate()
-        heartbeatTimer?.invalidate()
+        heartbeatTimer?.cancel()
         if let workspaceObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
         }
@@ -75,21 +76,25 @@ final class ActivityMonitor {
     private func startTimers() {
         guard heartbeatTimer == nil else { return }
 
-        heartbeatTimer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(
+            deadline: .now(),
+            repeating: .milliseconds(250),
+            leeway: .milliseconds(25)
+        )
+        timer.setEventHandler { [weak self] in
             Task { @MainActor in
                 self?.updateNarrative()
             }
         }
-        heartbeatTimer?.tolerance = 0.25
-        if let heartbeatTimer {
-            RunLoop.main.add(heartbeatTimer, forMode: .common)
-        }
+        heartbeatTimer = timer
+        timer.resume()
     }
 
     private func stopTimers() {
         browserPollTimer?.invalidate()
         browserPollTimer = nil
-        heartbeatTimer?.invalidate()
+        heartbeatTimer?.cancel()
         heartbeatTimer = nil
         accessibilityObserver.stop()
     }
@@ -151,6 +156,7 @@ final class ActivityMonitor {
             contextSwitchCount: contextSwitchCount,
             capturedAt: capturedAt
         )
+        lastRenderedDurationSecond = Int(accumulatedDuration.rounded(.down))
         narrative = narrativeBuilder.build(from: snapshot, at: capturedAt)
         onNarrativeChange?(narrative)
     }
@@ -162,6 +168,9 @@ final class ActivityMonitor {
         if now.timeIntervalSince(lastPersistedAt) >= 30 {
             persistDailyTime()
         }
+        let renderedDurationSecond = Int(snapshot.accumulatedDuration.rounded(.down))
+        guard renderedDurationSecond != lastRenderedDurationSecond else { return }
+        lastRenderedDurationSecond = renderedDurationSecond
         let nextNarrative = narrativeBuilder.build(from: snapshot, at: now)
         if nextNarrative != narrative {
             narrative = nextNarrative
