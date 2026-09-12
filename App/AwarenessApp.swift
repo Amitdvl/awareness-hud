@@ -28,4 +28,8 @@ final class AwarenessApp: NSObject, NSApplicationDelegate {
         hud.showHUD()
         hud.update(with: monitor.narrative)
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        monitor.persistTrackedTime()
+    }
 }

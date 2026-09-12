@@ -8,6 +8,7 @@ public struct ActivitySnapshot: Equatable, Sendable {
     public let websiteHost: String?
     public let websiteURL: String?
     public let activityStartedAt: Date
+    public var accumulatedDuration: TimeInterval
     public let contextSwitchCount: Int
     public let capturedAt: Date
 
@@ -19,6 +20,7 @@ public struct ActivitySnapshot: Equatable, Sendable {
         websiteHost: String? = nil,
         websiteURL: String? = nil,
         activityStartedAt: Date,
+        accumulatedDuration: TimeInterval = 0,
         contextSwitchCount: Int,
         capturedAt: Date
     ) {
@@ -29,6 +31,7 @@ public struct ActivitySnapshot: Equatable, Sendable {
         self.websiteHost = websiteHost
         self.websiteURL = websiteURL
         self.activityStartedAt = activityStartedAt
+        self.accumulatedDuration = accumulatedDuration
         self.contextSwitchCount = contextSwitchCount
         self.capturedAt = capturedAt
     }

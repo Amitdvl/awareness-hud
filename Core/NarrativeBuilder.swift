@@ -20,7 +20,7 @@ public struct NarrativeBuilder {
     public init() {}
 
     public func build(from snapshot: ActivitySnapshot, at date: Date) -> NarrativeContent {
-        let duration = DurationFormatter.short(date.timeIntervalSince(snapshot.activityStartedAt))
+        let duration = DurationFormatter.short(snapshot.accumulatedDuration)
 
         if let websiteTitle = snapshot.websiteTitle,
            let websiteHost = snapshot.websiteHost,

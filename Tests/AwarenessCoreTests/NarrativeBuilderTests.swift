@@ -10,6 +10,7 @@ final class NarrativeBuilderTests: XCTestCase {
             websiteTitle: "GitHub",
             websiteHost: "github.com",
             activityStartedAt: startedAt,
+            accumulatedDuration: 35,
             contextSwitchCount: 42,
             capturedAt: startedAt
         )

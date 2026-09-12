@@ -27,9 +27,18 @@ final class ActivityMonitor {
     private var previousIdentity: ActivityIdentity?
     private var activityStartedAt = Date()
     private var contextSwitchCount = 0
+    private var dailyTimeAccumulator: DailyAppTimeAccumulator
+    private var lastPersistedAt: Date
+
+    private static let dailyTimeStateKey = "Awareness.DailyAppTimeState"
 
     init() {
         let initialDate = Date()
+        dailyTimeAccumulator = DailyAppTimeAccumulator(
+            now: initialDate,
+            persistedState: Self.loadDailyTimeState()
+        )
+        lastPersistedAt = initialDate
         let initialSnapshot = ActivitySnapshot(
             appName: "Starting up",
             activityStartedAt: initialDate,
@@ -106,6 +115,9 @@ final class ActivityMonitor {
         guard isMonitoring else { return }
 
         let context = ActivityContextReader.read()
+        let capturedAt = Date()
+        let accumulatedDuration = dailyTimeAccumulator.record(appName: context.appName, at: capturedAt)
+        persistDailyTime()
         if let application = NSWorkspace.shared.frontmostApplication {
             accessibilityObserver.observe(application: application)
         }
@@ -127,7 +139,6 @@ final class ActivityMonitor {
         }
         previousIdentity = identity
 
-        let capturedAt = Date()
         snapshot = ActivitySnapshot(
             appName: context.appName,
             windowTitle: context.windowTitle,
@@ -136,6 +147,7 @@ final class ActivityMonitor {
             websiteHost: context.browserContext?.host,
             websiteURL: context.browserContext?.url,
             activityStartedAt: activityStartedAt,
+            accumulatedDuration: accumulatedDuration,
             contextSwitchCount: contextSwitchCount,
             capturedAt: capturedAt
         )
@@ -145,11 +157,31 @@ final class ActivityMonitor {
 
     private func updateNarrative() {
         guard isMonitoring else { return }
-        let nextNarrative = narrativeBuilder.build(from: snapshot, at: Date())
+        let now = Date()
+        snapshot.accumulatedDuration = dailyTimeAccumulator.record(appName: snapshot.appName, at: now)
+        if now.timeIntervalSince(lastPersistedAt) >= 30 {
+            persistDailyTime()
+        }
+        let nextNarrative = narrativeBuilder.build(from: snapshot, at: now)
         if nextNarrative != narrative {
             narrative = nextNarrative
             onNarrativeChange?(narrative)
         }
+    }
+
+    func persistTrackedTime() {
+        persistDailyTime()
+    }
+
+    private func persistDailyTime() {
+        guard let data = try? JSONEncoder().encode(dailyTimeAccumulator.state) else { return }
+        UserDefaults.standard.set(data, forKey: Self.dailyTimeStateKey)
+        lastPersistedAt = Date()
+    }
+
+    private static func loadDailyTimeState() -> DailyAppTimeState? {
+        guard let data = UserDefaults.standard.data(forKey: dailyTimeStateKey) else { return nil }
+        return try? JSONDecoder().decode(DailyAppTimeState.self, from: data)
     }
 }
 
