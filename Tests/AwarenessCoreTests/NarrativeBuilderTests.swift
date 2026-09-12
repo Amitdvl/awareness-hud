@@ -22,6 +22,7 @@ final class NarrativeBuilderTests: XCTestCase {
         let message = content.prefix + content.firstAccent + content.middle + content.secondAccent + content.suffix
 
         XCTAssertEqual(message, "You’ve been on github.com — GitHub — in Chrome for 35s.")
+        XCTAssertEqual(content.duration, "35s")
         XCTAssertFalse(message.localizedCaseInsensitiveContains("context"))
         XCTAssertFalse(message.localizedCaseInsensitiveContains("switch"))
     }

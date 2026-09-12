@@ -18,6 +18,7 @@ final class ActivityMonitor {
     private(set) var snapshot: ActivitySnapshot
     private(set) var narrative: NarrativeContent
     var onNarrativeChange: ((NarrativeContent) -> Void)?
+    var onContextChange: ((NarrativeContent) -> Void)?
 
     private let narrativeBuilder = NarrativeBuilder()
     private var browserPollTimer: Timer?
@@ -25,6 +26,7 @@ final class ActivityMonitor {
     private let accessibilityObserver = AccessibilityContextObserver()
     private var workspaceObserver: NSObjectProtocol?
     private var previousIdentity: ActivityIdentity?
+    private var previousRevealIdentity: ActivityRevealIdentity?
     private var activityStartedAt = Date()
     private var contextSwitchCount = 0
     private var dailyTimeAccumulator: DailyAppTimeAccumulator
@@ -143,6 +145,13 @@ final class ActivityMonitor {
             activityStartedAt = Date()
         }
         previousIdentity = identity
+        let revealIdentity = ActivityRevealIdentity(
+            appName: context.appName,
+            windowTitle: context.browserContext == nil ? context.windowTitle : nil,
+            websiteURL: context.browserContext?.url
+        )
+        let shouldRevealContext = previousRevealIdentity != revealIdentity
+        previousRevealIdentity = revealIdentity
 
         snapshot = ActivitySnapshot(
             appName: context.appName,
@@ -159,6 +168,9 @@ final class ActivityMonitor {
         lastRenderedDurationSecond = Int(accumulatedDuration.rounded(.down))
         narrative = narrativeBuilder.build(from: snapshot, at: capturedAt)
         onNarrativeChange?(narrative)
+        if shouldRevealContext {
+            onContextChange?(narrative)
+        }
     }
 
     private func updateNarrative() {
@@ -199,6 +211,12 @@ private struct ActivityIdentity: Equatable {
     let windowTitle: String?
     let websiteURL: String?
     let websiteTitle: String?
+}
+
+private struct ActivityRevealIdentity: Equatable {
+    let appName: String
+    let windowTitle: String?
+    let websiteURL: String?
 }
 
 struct ActivityContext {

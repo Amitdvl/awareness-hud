@@ -6,13 +6,22 @@ public struct NarrativeContent: Equatable, Sendable {
     public let middle: String
     public let secondAccent: String
     public let suffix: String
+    public let duration: String
 
-    public init(prefix: String, firstAccent: String, middle: String, secondAccent: String, suffix: String) {
+    public init(
+        prefix: String,
+        firstAccent: String,
+        middle: String,
+        secondAccent: String,
+        suffix: String,
+        duration: String = ""
+    ) {
         self.prefix = prefix
         self.firstAccent = firstAccent
         self.middle = middle
         self.secondAccent = secondAccent
         self.suffix = suffix
+        self.duration = duration
     }
 }
 
@@ -30,7 +39,8 @@ public struct NarrativeBuilder {
                 firstAccent: websiteHost,
                 middle: " — \(websiteTitle) — in ",
                 secondAccent: browserName,
-                suffix: " for \(duration)."
+                suffix: " for \(duration).",
+                duration: duration
             )
         }
 
@@ -40,7 +50,8 @@ public struct NarrativeBuilder {
             firstAccent: snapshot.appName,
             middle: "\(window) for ",
             secondAccent: duration,
-            suffix: "."
+            suffix: ".",
+            duration: duration
         )
     }
 }

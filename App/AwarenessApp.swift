@@ -25,8 +25,11 @@ final class AwarenessApp: NSObject, NSApplicationDelegate {
             hud?.update(with: narrative)
             statusMenu?.update(with: narrative)
         }
+        monitor.onContextChange = { [weak hud] narrative in
+            hud?.revealContext(with: narrative)
+        }
         hud.showHUD()
-        hud.update(with: monitor.narrative)
+        hud.revealContext(with: monitor.narrative)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

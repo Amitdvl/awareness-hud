@@ -28,6 +28,7 @@ Use `./script/build_and_run.sh --verify` to build, launch, and confirm the app p
 - Accessibility-backed focused-window title tracking
 - Chrome and Safari active website tracking via local AppleScript
 - Compact always-visible narrative rendering
+- Timer-first peek HUD: full context appears on a change, then collapses after five seconds
 - Content-sized HUD with persisted position and menu-bar Move HUD mode
 - AppKit-only runtime surface for lower resident memory and fewer view invalidations
 - Event-driven app, window, and browser-tab switching with a one-second Chrome/Safari fallback poll
