@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+exec python3 .agents/publication-safety/guard.py scan --repo . --scope staged
