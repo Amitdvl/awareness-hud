@@ -28,6 +28,16 @@ public struct NarrativeContent: Equatable, Sendable {
 public struct NarrativeBuilder {
     public init() {}
 
+    public func paused() -> NarrativeContent {
+        NarrativeContent(
+            prefix: "",
+            firstAccent: "Monitoring paused",
+            middle: "",
+            secondAccent: "",
+            suffix: ""
+        )
+    }
+
     public func build(from snapshot: ActivitySnapshot, at date: Date) -> NarrativeContent {
         let duration = DurationFormatter.short(snapshot.accumulatedDuration)
 

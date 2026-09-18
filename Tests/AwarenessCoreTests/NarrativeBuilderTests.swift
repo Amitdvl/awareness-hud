@@ -26,4 +26,12 @@ final class NarrativeBuilderTests: XCTestCase {
         XCTAssertFalse(message.localizedCaseInsensitiveContains("context"))
         XCTAssertFalse(message.localizedCaseInsensitiveContains("switch"))
     }
+
+    func testPausedNarrativeContainsNoPriorActivityContext() {
+        let content = NarrativeBuilder().paused()
+
+        XCTAssertEqual(content.firstAccent, "Monitoring paused")
+        XCTAssertEqual(content.duration, "")
+        XCTAssertEqual(content.prefix + content.middle + content.secondAccent + content.suffix, "")
+    }
 }
