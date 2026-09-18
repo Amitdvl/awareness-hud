@@ -35,14 +35,14 @@ final class HUDContentView: NSView {
     }
 
     @discardableResult
-    func update(with narrative: NarrativeContent, isCompact: Bool) -> NSSize {
-        let attributed = isCompact ? compactText(for: narrative) : expandedText(for: narrative)
-        let maximumWidth: CGFloat = isCompact ? 230 : 440
-        let minimumWidth: CGFloat = isCompact ? 112 : 280
+    func update(with narrative: NarrativeContent) -> NSSize {
+        let attributed = compactText(for: narrative)
+        let maximumWidth: CGFloat = 230
+        let minimumWidth: CGFloat = 112
         let horizontalPadding: CGFloat = 28
 
-        label.maximumNumberOfLines = isCompact ? 1 : 2
-        label.lineBreakMode = isCompact ? .byTruncatingTail : .byWordWrapping
+        label.maximumNumberOfLines = 1
+        label.lineBreakMode = .byTruncatingTail
         label.attributedStringValue = attributed
 
         let naturalWidth = ceil(attributed.size().width)
@@ -52,9 +52,7 @@ final class HUDContentView: NSView {
             options: [.usesLineFragmentOrigin, .usesFontLeading]
         )
         let lineHeight = ceil(NSFont.systemFont(ofSize: 14).boundingRectForFont.height)
-        let height = isCompact
-            ? max(34, lineHeight + 16)
-            : min(62, max(38, ceil(textRect.height) + 16))
+        let height = max(34, lineHeight + 16)
         return NSSize(width: width, height: height)
     }
 
@@ -80,15 +78,4 @@ final class HUDContentView: NSView {
         return result
     }
 
-    private func expandedText(for narrative: NarrativeContent) -> NSAttributedString {
-        let font = NSFont.systemFont(ofSize: 14, weight: .medium)
-        let bodyAttributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: bodyColor]
-        let accentAttributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: accentColor]
-        let attributed = NSMutableAttributedString(string: narrative.prefix, attributes: bodyAttributes)
-        attributed.append(NSAttributedString(string: narrative.firstAccent, attributes: accentAttributes))
-        attributed.append(NSAttributedString(string: narrative.middle, attributes: bodyAttributes))
-        attributed.append(NSAttributedString(string: narrative.secondAccent, attributes: accentAttributes))
-        attributed.append(NSAttributedString(string: narrative.suffix, attributes: bodyAttributes))
-        return attributed
-    }
 }
