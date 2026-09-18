@@ -11,6 +11,7 @@ final class ActivityMonitor {
                 refreshContext()
             } else {
                 stopTimers()
+                clearVisibleContext()
             }
         }
     }
@@ -97,6 +98,20 @@ final class ActivityMonitor {
         heartbeatTimer?.cancel()
         heartbeatTimer = nil
         accessibilityObserver.stop()
+    }
+
+    private func clearVisibleContext() {
+        let now = Date()
+        previousIdentity = nil
+        snapshot = ActivitySnapshot(
+            appName: "Monitoring paused",
+            activityStartedAt: now,
+            contextSwitchCount: contextSwitchCount,
+            capturedAt: now
+        )
+        lastRenderedDurationSecond = nil
+        narrative = narrativeBuilder.paused()
+        onNarrativeChange?(narrative)
     }
 
     private func updateBrowserPolling(for context: ActivityContext) {
