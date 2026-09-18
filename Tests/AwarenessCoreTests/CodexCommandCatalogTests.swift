@@ -21,12 +21,21 @@ final class CodexCommandCatalogTests: XCTestCase {
     """
 
     func testListsOnlyAvailablePersonalCommandsAndNotSkills() throws {
-        let commands = try CodexCommandCatalog.parse(Data(catalog.utf8)) { _ in true }
+        let commands = try CodexCommandCatalog.parse(Data(catalog.utf8)) {
+            ["archive", "commands", "personal-plugin"].contains($0)
+        }
         XCTAssertEqual(commands.map(\.invocation), ["/archive", "/commands", "/personal-plugin"])
     }
 
     func testOmitsManifestCommandsMissingFromThisCodexInstallation() throws {
         let commands = try CodexCommandCatalog.parse(Data(catalog.utf8)) { $0 == "archive" }
         XCTAssertEqual(commands.map(\.invocation), ["/archive", "/personal-plugin"])
+    }
+
+    func testIncludesUserSelectedStandalonePackagesWhenInstalled() throws {
+        let commands = try CodexCommandCatalog.parse(Data(catalog.utf8)) {
+            ["archive", "book", "mentor", "viral-sense"].contains($0)
+        }
+        XCTAssertEqual(commands.map(\.invocation), ["/archive", "/book", "/mentor", "/personal-plugin", "/viral-sense"])
     }
 }
