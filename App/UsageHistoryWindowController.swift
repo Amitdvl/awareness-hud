@@ -73,7 +73,9 @@ private enum UsageHistoryTextFormatter {
 
         let total = day.durations.values.reduce(0, +)
         let trackedRange: String
-        if let firstTrackedAt = day.firstTrackedAt, let lastTrackedAt = day.lastTrackedAt {
+        if day.trackingBoundsAreComplete == true,
+           let firstTrackedAt = day.firstTrackedAt,
+           let lastTrackedAt = day.lastTrackedAt {
             trackedRange = "Tracked \(timeFormatter.string(from: firstTrackedAt))–\(timeFormatter.string(from: lastTrackedAt))"
         } else {
             trackedRange = "Tracking bounds unavailable (collected before history was enabled)"

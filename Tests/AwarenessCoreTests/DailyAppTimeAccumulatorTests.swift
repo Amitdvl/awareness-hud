@@ -65,6 +65,7 @@ final class DailyAppTimeAccumulatorTests: XCTestCase {
         XCTAssertEqual(state.durations, ["Notes": 60])
         XCTAssertNil(state.firstTrackedAt)
         XCTAssertNil(state.lastTrackedAt)
+        XCTAssertNil(state.trackingBoundsAreComplete)
     }
 
     func testHistoryKeepsOneRecordPerDayAndReplacesNewerTotals() {

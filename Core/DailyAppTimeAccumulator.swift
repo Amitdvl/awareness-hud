@@ -7,6 +7,9 @@ public struct DailyAppTimeState: Codable, Equatable, Sendable {
     public let durations: [String: TimeInterval]
     public let firstTrackedAt: Date?
     public let lastTrackedAt: Date?
+    /// `false` when this day was imported from the pre-history tracker, whose
+    /// aggregate totals did not include start and end timestamps.
+    public let trackingBoundsAreComplete: Bool?
 
     public init(
         dayStart: Date,
@@ -14,7 +17,8 @@ public struct DailyAppTimeState: Codable, Equatable, Sendable {
         utcOffsetSeconds: Int? = nil,
         durations: [String: TimeInterval],
         firstTrackedAt: Date? = nil,
-        lastTrackedAt: Date? = nil
+        lastTrackedAt: Date? = nil,
+        trackingBoundsAreComplete: Bool? = true
     ) {
         self.dayStart = dayStart
         self.timeZoneIdentifier = timeZoneIdentifier
@@ -22,6 +26,7 @@ public struct DailyAppTimeState: Codable, Equatable, Sendable {
         self.durations = durations
         self.firstTrackedAt = firstTrackedAt
         self.lastTrackedAt = lastTrackedAt
+        self.trackingBoundsAreComplete = trackingBoundsAreComplete
     }
 }
 
@@ -67,6 +72,7 @@ public struct DailyAppTimeAccumulator {
     private var lastUpdatedAt: Date
     private var firstTrackedAt: Date?
     private var lastTrackedAt: Date?
+    private var trackingBoundsAreComplete: Bool
     private var completedDays: [DailyAppTimeState] = []
 
     public init(
@@ -83,6 +89,7 @@ public struct DailyAppTimeAccumulator {
             durations = persistedState.durations
             firstTrackedAt = persistedState.firstTrackedAt
             lastTrackedAt = persistedState.lastTrackedAt
+            trackingBoundsAreComplete = persistedState.trackingBoundsAreComplete ?? false
         } else {
             dayStart = calendar.startOfDay(for: now)
             timeZoneIdentifier = calendar.timeZone.identifier
@@ -90,6 +97,7 @@ public struct DailyAppTimeAccumulator {
             durations = [:]
             firstTrackedAt = nil
             lastTrackedAt = nil
+            trackingBoundsAreComplete = true
         }
         lastUpdatedAt = now
     }
@@ -98,7 +106,9 @@ public struct DailyAppTimeAccumulator {
     public mutating func record(appName: String, at date: Date = Date()) -> TimeInterval {
         advance(to: date)
         activeAppName = appName
-        firstTrackedAt = firstTrackedAt ?? date
+        if trackingBoundsAreComplete {
+            firstTrackedAt = firstTrackedAt ?? date
+        }
         lastTrackedAt = date
         return durations[appName, default: 0]
     }
@@ -128,7 +138,8 @@ public struct DailyAppTimeAccumulator {
             utcOffsetSeconds: utcOffsetSeconds,
             durations: durations,
             firstTrackedAt: firstTrackedAt,
-            lastTrackedAt: lastTrackedAt
+            lastTrackedAt: lastTrackedAt,
+            trackingBoundsAreComplete: trackingBoundsAreComplete
         )
     }
 
@@ -167,5 +178,6 @@ public struct DailyAppTimeAccumulator {
         durations = [:]
         firstTrackedAt = date
         lastTrackedAt = date
+        trackingBoundsAreComplete = true
     }
 }
