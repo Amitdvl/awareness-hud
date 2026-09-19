@@ -6,10 +6,12 @@ final class StatusMenuController: NSObject {
     private let monitor: ActivityMonitor
     private weak var hudController: HUDWindowController?
     private var commandsWindowController: CodexCommandsWindowController?
+    private var usageHistoryWindowController: UsageHistoryWindowController?
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let activityItem = NSMenuItem(title: "Starting up", action: nil, keyEquivalent: "")
     private let monitoringItem = NSMenuItem(title: "Monitoring", action: #selector(toggleMonitoring), keyEquivalent: "")
     private let moveItem = NSMenuItem(title: "Move HUD", action: #selector(toggleMoveMode), keyEquivalent: "")
+    private let usageHistoryItem = NSMenuItem(title: "Usage History…", action: #selector(openUsageHistory), keyEquivalent: "")
     private let commandsItem = NSMenuItem(title: "Codex Commands…", action: #selector(openCommands), keyEquivalent: "")
 
     init(monitor: ActivityMonitor, hudController: HUDWindowController) {
@@ -29,6 +31,7 @@ final class StatusMenuController: NSObject {
         menu.addItem(.separator())
         menu.addItem(monitoringItem)
         menu.addItem(moveItem)
+        menu.addItem(usageHistoryItem)
         menu.addItem(commandsItem)
         menu.addItem(NSMenuItem(title: "Open Accessibility Settings", action: #selector(openAccessibilitySettings), keyEquivalent: ""))
         menu.addItem(.separator())
@@ -60,6 +63,13 @@ final class StatusMenuController: NSObject {
             commandsWindowController = CodexCommandsWindowController()
         }
         commandsWindowController?.showCommands()
+    }
+
+    @objc private func openUsageHistory() {
+        if usageHistoryWindowController == nil {
+            usageHistoryWindowController = UsageHistoryWindowController()
+        }
+        usageHistoryWindowController?.show(history: monitor.usageHistorySnapshot())
     }
 
     @objc private func openAccessibilitySettings() {

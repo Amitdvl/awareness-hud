@@ -10,6 +10,8 @@ final class ActivityMonitor {
                 startTimers()
                 refreshContext()
             } else {
+                dailyTimeAccumulator.pause(at: Date())
+                persistDailyTime()
                 stopTimers()
                 clearVisibleContext()
             }
@@ -29,16 +31,20 @@ final class ActivityMonitor {
     private var activityStartedAt = Date()
     private var contextSwitchCount = 0
     private var dailyTimeAccumulator: DailyAppTimeAccumulator
+    private var usageHistory: DailyUsageHistory
     private var lastPersistedAt: Date
     private var lastRenderedDurationSecond: Int?
 
     private static let dailyTimeStateKey = "Awareness.DailyAppTimeState"
+    private static let usageHistoryKey = "Awareness.DailyUsageHistory"
 
     init() {
         let initialDate = Date()
+        let persistedHistory = Self.loadUsageHistory()
+        usageHistory = persistedHistory
         dailyTimeAccumulator = DailyAppTimeAccumulator(
             now: initialDate,
-            persistedState: Self.loadDailyTimeState()
+            persistedState: persistedHistory.state(for: initialDate, calendar: .current)
         )
         lastPersistedAt = initialDate
         let initialSnapshot = ActivitySnapshot(
@@ -194,18 +200,40 @@ final class ActivityMonitor {
     }
 
     func persistTrackedTime() {
-        persistDailyTime()
+        persistDailyTime(flushingAt: Date())
     }
 
-    private func persistDailyTime() {
-        guard let data = try? JSONEncoder().encode(dailyTimeAccumulator.state) else { return }
-        UserDefaults.standard.set(data, forKey: Self.dailyTimeStateKey)
+    func usageHistorySnapshot() -> DailyUsageHistory {
+        persistDailyTime(flushingAt: Date())
+        return usageHistory
+    }
+
+    private func persistDailyTime(flushingAt date: Date? = nil) {
+        if let date {
+            dailyTimeAccumulator.flush(at: date)
+        }
+        dailyTimeAccumulator.drainCompletedDays().forEach { usageHistory.upsert($0) }
+        usageHistory.upsert(dailyTimeAccumulator.state)
+
+        guard let data = try? JSONEncoder().encode(usageHistory) else { return }
+        UserDefaults.standard.set(data, forKey: Self.usageHistoryKey)
+        // The original one-day format is migrated only after it has been archived.
+        UserDefaults.standard.removeObject(forKey: Self.dailyTimeStateKey)
         lastPersistedAt = Date()
     }
 
-    private static func loadDailyTimeState() -> DailyAppTimeState? {
-        guard let data = UserDefaults.standard.data(forKey: dailyTimeStateKey) else { return nil }
-        return try? JSONDecoder().decode(DailyAppTimeState.self, from: data)
+    private static func loadUsageHistory() -> DailyUsageHistory {
+        if let data = UserDefaults.standard.data(forKey: usageHistoryKey),
+           let history = try? JSONDecoder().decode(DailyUsageHistory.self, from: data) {
+            return history
+        }
+
+        if let data = UserDefaults.standard.data(forKey: dailyTimeStateKey),
+           let legacyState = try? JSONDecoder().decode(DailyAppTimeState.self, from: data) {
+            return DailyUsageHistory(days: [legacyState])
+        }
+
+        return DailyUsageHistory()
     }
 }
 
