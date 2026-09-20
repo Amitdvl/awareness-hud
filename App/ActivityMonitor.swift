@@ -150,7 +150,7 @@ final class ActivityMonitor {
 
         let context = ActivityContextReader.read()
         let capturedAt = Date()
-        let accumulatedDuration = dailyTimeAccumulator.record(appName: context.appName, at: capturedAt)
+        let accumulatedDuration = dailyTimeAccumulator.record(activity: usageActivity(for: context), at: capturedAt)
         let focusSource = focusSource(for: context)
         if let focusSource {
             latestTrackableFocusSource = focusSource
@@ -198,7 +198,7 @@ final class ActivityMonitor {
     private func updateNarrative() {
         guard isMonitoring else { return }
         let now = Date()
-        snapshot.accumulatedDuration = dailyTimeAccumulator.record(appName: snapshot.appName, at: now)
+        snapshot.accumulatedDuration = dailyTimeAccumulator.record(activity: usageActivity(for: snapshot), at: now)
         recordFocusEvidence(source: latestTrackableFocusSource, at: now)
         if now.timeIntervalSince(lastPersistedAt) >= 30 {
             persistDailyTime()
@@ -309,6 +309,24 @@ final class ActivityMonitor {
             appName: context.appName,
             browserName: context.browserContext?.browserName,
             websiteHost: context.browserContext?.host
+        )
+    }
+
+    private func usageActivity(for context: ActivityContext) -> UsageActivityContext {
+        UsageActivityContext(
+            appName: context.appName,
+            browserName: context.browserContext?.browserName,
+            websiteHost: context.browserContext?.host,
+            websiteTitle: context.browserContext?.title
+        )
+    }
+
+    private func usageActivity(for snapshot: ActivitySnapshot) -> UsageActivityContext {
+        UsageActivityContext(
+            appName: snapshot.appName,
+            browserName: snapshot.browserName,
+            websiteHost: snapshot.websiteHost,
+            websiteTitle: snapshot.websiteTitle
         )
     }
 

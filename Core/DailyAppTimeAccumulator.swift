@@ -1,5 +1,42 @@
 import Foundation
 
+/// A browser tab represented by its browser, host, and visible title.
+/// Full URLs are deliberately not retained.
+public struct BrowserTabUsage: Codable, Equatable, Sendable, Hashable, Identifiable {
+    public let appName: String
+    public let browserName: String
+    public let host: String
+    public let title: String?
+    public let duration: TimeInterval
+
+    public init(appName: String, browserName: String, host: String, title: String?, duration: TimeInterval) {
+        self.appName = appName
+        self.browserName = browserName
+        self.host = host
+        self.title = title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        self.duration = duration
+    }
+
+    public var id: String {
+        "\(appName.lowercased())|\(browserName.lowercased())|\(host.lowercased())|\(title?.lowercased() ?? "")"
+    }
+}
+
+/// The current foreground context used to attribute daily time.
+public struct UsageActivityContext: Equatable, Sendable {
+    public let appName: String
+    public let browserName: String?
+    public let websiteHost: String?
+    public let websiteTitle: String?
+
+    public init(appName: String, browserName: String? = nil, websiteHost: String? = nil, websiteTitle: String? = nil) {
+        self.appName = appName
+        self.browserName = browserName
+        self.websiteHost = websiteHost?.lowercased()
+        self.websiteTitle = websiteTitle?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
+}
+
 public struct DailyAppTimeState: Codable, Equatable, Sendable {
     public let dayStart: Date
     public let timeZoneIdentifier: String?
@@ -10,6 +47,8 @@ public struct DailyAppTimeState: Codable, Equatable, Sendable {
     /// `false` when this day was imported from the pre-history tracker, whose
     /// aggregate totals did not include start and end timestamps.
     public let trackingBoundsAreComplete: Bool?
+    /// Browser-tab totals captured after tab history was enabled.
+    public let browserTabs: [BrowserTabUsage]?
 
     public init(
         dayStart: Date,
@@ -18,7 +57,8 @@ public struct DailyAppTimeState: Codable, Equatable, Sendable {
         durations: [String: TimeInterval],
         firstTrackedAt: Date? = nil,
         lastTrackedAt: Date? = nil,
-        trackingBoundsAreComplete: Bool? = true
+        trackingBoundsAreComplete: Bool? = true,
+        browserTabs: [BrowserTabUsage]? = []
     ) {
         self.dayStart = dayStart
         self.timeZoneIdentifier = timeZoneIdentifier
@@ -27,14 +67,15 @@ public struct DailyAppTimeState: Codable, Equatable, Sendable {
         self.firstTrackedAt = firstTrackedAt
         self.lastTrackedAt = lastTrackedAt
         self.trackingBoundsAreComplete = trackingBoundsAreComplete
+        self.browserTabs = browserTabs
     }
 }
 
 /// A local-only archive of daily foreground-app totals.
 ///
 /// Each entry retains the calendar-day boundary and time-zone context that were
-/// in effect while that day's activity was tracked. No window titles, URLs, or
-/// browser page details are included.
+/// in effect while that day's activity was tracked. Browser entries retain the
+/// host and visible tab title, but never a full URL or window title.
 public struct DailyUsageHistory: Codable, Equatable, Sendable {
     public private(set) var days: [DailyAppTimeState]
 
@@ -69,6 +110,8 @@ public struct DailyAppTimeAccumulator {
     private var utcOffsetSeconds: Int?
     private var durations: [String: TimeInterval]
     private var activeAppName: String?
+    private var browserTabDurations: [BrowserTabIdentity: TimeInterval]
+    private var activeBrowserTab: BrowserTabIdentity?
     private var lastUpdatedAt: Date
     private var firstTrackedAt: Date?
     private var lastTrackedAt: Date?
@@ -87,6 +130,10 @@ public struct DailyAppTimeAccumulator {
             timeZoneIdentifier = persistedState.timeZoneIdentifier ?? calendar.timeZone.identifier
             utcOffsetSeconds = persistedState.utcOffsetSeconds ?? calendar.timeZone.secondsFromGMT(for: persistedState.dayStart)
             durations = persistedState.durations
+            browserTabDurations = Dictionary(uniqueKeysWithValues: (persistedState.browserTabs ?? []).map {
+                (BrowserTabIdentity(appName: $0.appName, browserName: $0.browserName, host: $0.host, title: $0.title), $0.duration)
+            })
+            activeBrowserTab = nil
             firstTrackedAt = persistedState.firstTrackedAt
             lastTrackedAt = persistedState.lastTrackedAt
             trackingBoundsAreComplete = persistedState.trackingBoundsAreComplete ?? false
@@ -95,6 +142,8 @@ public struct DailyAppTimeAccumulator {
             timeZoneIdentifier = calendar.timeZone.identifier
             utcOffsetSeconds = calendar.timeZone.secondsFromGMT(for: dayStart)
             durations = [:]
+            browserTabDurations = [:]
+            activeBrowserTab = nil
             firstTrackedAt = nil
             lastTrackedAt = nil
             trackingBoundsAreComplete = true
@@ -104,19 +153,26 @@ public struct DailyAppTimeAccumulator {
 
     @discardableResult
     public mutating func record(appName: String, at date: Date = Date()) -> TimeInterval {
+        record(activity: UsageActivityContext(appName: appName), at: date)
+    }
+
+    @discardableResult
+    public mutating func record(activity: UsageActivityContext, at date: Date = Date()) -> TimeInterval {
         advance(to: date)
-        activeAppName = appName
+        activeAppName = activity.appName
+        activeBrowserTab = BrowserTabIdentity(activity: activity)
         if trackingBoundsAreComplete {
             firstTrackedAt = firstTrackedAt ?? date
         }
         lastTrackedAt = date
-        return durations[appName, default: 0]
+        return durations[activity.appName, default: 0]
     }
 
     /// Stops timing until a later `record` call. Time through the pause is kept.
     public mutating func pause(at date: Date = Date()) {
         advance(to: date)
         activeAppName = nil
+        activeBrowserTab = nil
         lastUpdatedAt = date
     }
 
@@ -139,7 +195,10 @@ public struct DailyAppTimeAccumulator {
             durations: durations,
             firstTrackedAt: firstTrackedAt,
             lastTrackedAt: lastTrackedAt,
-            trackingBoundsAreComplete: trackingBoundsAreComplete
+            trackingBoundsAreComplete: trackingBoundsAreComplete,
+            browserTabs: browserTabDurations
+                .map { BrowserTabUsage(appName: $0.key.appName, browserName: $0.key.browserName, host: $0.key.host, title: $0.key.title, duration: $0.value) }
+                .sorted { $0.duration > $1.duration }
         )
     }
 
@@ -157,6 +216,9 @@ public struct DailyAppTimeAccumulator {
             }
             let boundary = min(nextDayStart, date)
             durations[activeAppName, default: 0] += boundary.timeIntervalSince(lastUpdatedAt)
+            if let activeBrowserTab {
+                browserTabDurations[activeBrowserTab, default: 0] += boundary.timeIntervalSince(lastUpdatedAt)
+            }
             lastUpdatedAt = boundary
             lastTrackedAt = boundary
             completedDays.append(state)
@@ -166,6 +228,9 @@ public struct DailyAppTimeAccumulator {
         let elapsed = date.timeIntervalSince(lastUpdatedAt)
         if elapsed > 0 {
             durations[activeAppName, default: 0] += elapsed
+            if let activeBrowserTab {
+                browserTabDurations[activeBrowserTab, default: 0] += elapsed
+            }
         }
         lastUpdatedAt = date
         lastTrackedAt = date
@@ -176,8 +241,35 @@ public struct DailyAppTimeAccumulator {
         timeZoneIdentifier = calendar.timeZone.identifier
         utcOffsetSeconds = calendar.timeZone.secondsFromGMT(for: dayStart)
         durations = [:]
+        browserTabDurations = [:]
+        activeBrowserTab = nil
         firstTrackedAt = date
         lastTrackedAt = date
         trackingBoundsAreComplete = true
+    }
+}
+
+private struct BrowserTabIdentity: Hashable {
+    let appName: String
+    let browserName: String
+    let host: String
+    let title: String?
+
+    init(appName: String, browserName: String, host: String, title: String?) {
+        self.appName = appName
+        self.browserName = browserName
+        self.host = host.lowercased()
+        self.title = title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
+
+    init?(activity: UsageActivityContext) {
+        guard let browserName = activity.browserName, let host = activity.websiteHost else { return nil }
+        self.init(appName: activity.appName, browserName: browserName, host: host, title: activity.websiteTitle)
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }

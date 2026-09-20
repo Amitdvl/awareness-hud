@@ -52,7 +52,7 @@ private enum UsageHistoryTextFormatter {
             return "No foreground app time has been recorded yet.\n\nAwareness keeps this history locally on this Mac."
         }
 
-        let heading = "Local-only history • foreground app time while Awareness runs\n\n"
+        let heading = "Local-only history • foreground app time while Awareness runs\nBrowser entries expose active tabs by host and title; full URLs are not retained.\n\n"
         let days = history.days.reversed().map(formatDay).joined(separator: "\n\n")
         return heading + days
     }
@@ -82,9 +82,20 @@ private enum UsageHistoryTextFormatter {
         }
 
         let zoneLabel = "\(timeZone.identifier) (UTC\(offsetText(for: timeZone, at: day.dayStart)))"
+        let tabsByApp = Dictionary(grouping: day.browserTabs ?? [], by: \.appName)
         let apps = day.durations
             .sorted { $0.value > $1.value }
-            .map { "  \($0.key): \(DurationFormatter.short($0.value))" }
+            .map { appName, duration in
+                let tabs = (tabsByApp[appName] ?? [])
+                    .sorted { $0.duration > $1.duration }
+                    .map { tab in
+                        let title = tab.title ?? "Untitled tab"
+                        return "      \(tab.host) — \(title): \(DurationFormatter.short(tab.duration))"
+                    }
+                    .joined(separator: "\n")
+                let tabSection = tabs.isEmpty ? "" : "\n    Tabs in \(appName):\n\(tabs)"
+                return "  \(appName): \(DurationFormatter.short(duration))\(tabSection)"
+            }
             .joined(separator: "\n")
 
         return "\(dateFormatter.string(from: day.dayStart))\n\(zoneLabel) • \(trackedRange) • \(DurationFormatter.short(total)) total\n\(apps)"

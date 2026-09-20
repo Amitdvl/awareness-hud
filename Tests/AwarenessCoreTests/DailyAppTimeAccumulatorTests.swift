@@ -48,6 +48,38 @@ final class DailyAppTimeAccumulatorTests: XCTestCase {
         XCTAssertEqual(relaunched.record(appName: "Safari", at: date("2026-09-12T10:00:00Z")), 900)
     }
 
+    func testBrowserTabsAreRetainedBelowTheirBrowserApp() throws {
+        let calendar = utcCalendar()
+        let start = date("2026-09-12T09:00:00Z")
+        var accumulator = DailyAppTimeAccumulator(now: start, calendar: calendar)
+        let docs = UsageActivityContext(
+            appName: "Safari",
+            browserName: "Safari",
+            websiteHost: "docs.example.com",
+            websiteTitle: "API Guide"
+        )
+        let inbox = UsageActivityContext(
+            appName: "Safari",
+            browserName: "Safari",
+            websiteHost: "mail.example.com",
+            websiteTitle: "Inbox"
+        )
+
+        _ = accumulator.record(activity: docs, at: start)
+        _ = accumulator.record(activity: inbox, at: date("2026-09-12T09:10:00Z"))
+        _ = accumulator.record(appName: "Notes", at: date("2026-09-12T09:15:00Z"))
+
+        XCTAssertEqual(accumulator.state.durations["Safari"], 900)
+        let expectedTabs = [
+            BrowserTabUsage(appName: "Safari", browserName: "Safari", host: "docs.example.com", title: "API Guide", duration: 600),
+            BrowserTabUsage(appName: "Safari", browserName: "Safari", host: "mail.example.com", title: "Inbox", duration: 300)
+        ]
+        XCTAssertEqual(accumulator.state.browserTabs, expectedTabs)
+
+        let restoredState = try JSONDecoder().decode(DailyAppTimeState.self, from: JSONEncoder().encode(accumulator.state))
+        XCTAssertEqual(restoredState.browserTabs, expectedTabs)
+    }
+
     func testPausedTimeIsNotAddedAfterMonitoringResumes() {
         let calendar = utcCalendar()
         let start = date("2026-09-12T09:00:00Z")
