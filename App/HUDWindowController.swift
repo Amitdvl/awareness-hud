@@ -4,6 +4,8 @@ import AwarenessCore
 final class HUDWindowController: NSWindowController, NSWindowDelegate {
     private let positionDefaultsKey = "Awareness.HUDPosition"
     private var latestNarrative: NarrativeContent?
+    private var hasAppliedInitialPosition = false
+    private var isApplyingInitialPosition = false
 
     init() {
         let contentView = HUDContentView(frame: NSRect(x: 0, y: 0, width: 520, height: 76))
@@ -34,16 +36,6 @@ final class HUDWindowController: NSWindowController, NSWindowDelegate {
 
     func showHUD() {
         guard let window else { return }
-        if let savedOrigin = savedOrigin(for: window.frame.size) {
-            window.setFrameOrigin(savedOrigin)
-        } else if let screen = NSScreen.main {
-            let visibleFrame = screen.visibleFrame
-            let topLeft = NSPoint(
-                x: visibleFrame.midX - window.frame.width / 2,
-                y: visibleFrame.maxY - 48
-            )
-            window.setFrameTopLeftPoint(topLeft)
-        }
         window.orderFrontRegardless()
     }
 
@@ -56,8 +48,13 @@ final class HUDWindowController: NSWindowController, NSWindowDelegate {
         guard let window,
               let contentView = window.contentView as? HUDContentView,
               let latestNarrative else { return }
-        let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
         let size = contentView.update(with: latestNarrative)
+        if !hasAppliedInitialPosition {
+            applyInitialPosition(to: window, size: size)
+            return
+        }
+
+        let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
         let frame = NSRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height)
         window.setFrame(frame, display: true)
     }
@@ -68,7 +65,7 @@ final class HUDWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidMove(_ notification: Notification) {
-        guard let origin = window?.frame.origin else { return }
+        guard hasAppliedInitialPosition, !isApplyingInitialPosition, let origin = window?.frame.origin else { return }
         UserDefaults.standard.set([
             "x": NSNumber(value: Double(origin.x)),
             "y": NSNumber(value: Double(origin.y))
@@ -85,5 +82,24 @@ final class HUDWindowController: NSWindowController, NSWindowDelegate {
         let origin = NSPoint(x: x, y: y)
         let frame = NSRect(origin: origin, size: size)
         return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) } ? origin : nil
+    }
+
+    private func applyInitialPosition(to window: NSWindow, size: NSSize) {
+        isApplyingInitialPosition = true
+        defer {
+            isApplyingInitialPosition = false
+            hasAppliedInitialPosition = true
+        }
+
+        if let savedOrigin = savedOrigin(for: size) {
+            window.setFrame(NSRect(origin: savedOrigin, size: size), display: true)
+        } else if let screen = NSScreen.main {
+            let visibleFrame = screen.visibleFrame
+            let topLeft = NSPoint(
+                x: visibleFrame.midX - size.width / 2,
+                y: visibleFrame.maxY - 48
+            )
+            window.setFrame(NSRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height), display: true)
+        }
     }
 }
