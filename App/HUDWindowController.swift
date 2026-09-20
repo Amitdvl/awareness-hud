@@ -3,6 +3,7 @@ import AwarenessCore
 
 final class HUDWindowController: NSWindowController, NSWindowDelegate {
     private let positionDefaultsKey = "Awareness.HUDPosition"
+    private let topLeftAnchor = "topLeft"
     private var latestNarrative: NarrativeContent?
     private var hasAppliedInitialPosition = false
     private var isApplyingInitialPosition = false
@@ -65,11 +66,13 @@ final class HUDWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidMove(_ notification: Notification) {
-        guard hasAppliedInitialPosition, !isApplyingInitialPosition, let origin = window?.frame.origin else { return }
+        guard hasAppliedInitialPosition, !isApplyingInitialPosition, let frame = window?.frame else { return }
         UserDefaults.standard.set([
-            "x": NSNumber(value: Double(origin.x)),
-            "y": NSNumber(value: Double(origin.y))
+            "x": NSNumber(value: Double(frame.minX)),
+            "y": NSNumber(value: Double(frame.maxY)),
+            "anchor": topLeftAnchor
         ], forKey: positionDefaultsKey)
+        UserDefaults.standard.synchronize()
     }
 
     private func savedOrigin(for size: NSSize) -> NSPoint? {
@@ -79,9 +82,20 @@ final class HUDWindowController: NSWindowController, NSWindowDelegate {
             return nil
         }
 
-        let origin = NSPoint(x: x, y: y)
-        let frame = NSRect(origin: origin, size: size)
-        return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) } ? origin : nil
+        // The original format represented the lower-left corner. Preserve it on
+        // first launch after upgrading, then persist all later deliberate moves
+        // against the top edge so a future content-height change cannot drift it.
+        let origin: NSPoint
+        if saved["anchor"] as? String == topLeftAnchor {
+            origin = NSPoint(x: x, y: y - size.height)
+        } else {
+            origin = NSPoint(x: x, y: y)
+        }
+        // Do not reject a saved point during launch. At this point AppKit can
+        // report an incomplete screen inventory for an accessory app, which
+        // caused perfectly valid placements to be silently replaced by the
+        // default top-centre position.
+        return origin
     }
 
     private func applyInitialPosition(to window: NSWindow, size: NSSize) {
