@@ -5,12 +5,14 @@ import AwarenessCore
 final class StatusMenuController: NSObject {
     private let monitor: ActivityMonitor
     private weak var hudController: HUDWindowController?
+    private let launchAtLoginController: LaunchAtLoginController
     private var commandsWindowController: CodexCommandsWindowController?
     private var usageHistoryWindowController: UsageHistoryWindowController?
     private var focusHistoryWindowController: FocusHistoryWindowController?
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let activityItem = NSMenuItem(title: "Starting up", action: nil, keyEquivalent: "")
     private let monitoringItem = NSMenuItem(title: "Monitoring", action: #selector(toggleMonitoring), keyEquivalent: "")
+    private let openAtStartupItem = NSMenuItem(title: "Open at Startup", action: #selector(toggleOpenAtStartup), keyEquivalent: "")
     private let moveItem = NSMenuItem(title: "Move HUD", action: #selector(toggleMoveMode), keyEquivalent: "")
     private let startFocusItem = NSMenuItem(title: "Start Focus Block…", action: #selector(startFocusBlock), keyEquivalent: "")
     private let finishFocusItem = NSMenuItem(title: "Finish Focus Block…", action: #selector(finishFocusBlock), keyEquivalent: "")
@@ -18,9 +20,14 @@ final class StatusMenuController: NSObject {
     private let usageHistoryItem = NSMenuItem(title: "Usage History…", action: #selector(openUsageHistory), keyEquivalent: "")
     private let commandsItem = NSMenuItem(title: "Codex Commands…", action: #selector(openCommands), keyEquivalent: "")
 
-    init(monitor: ActivityMonitor, hudController: HUDWindowController) {
+    init(
+        monitor: ActivityMonitor,
+        hudController: HUDWindowController,
+        launchAtLoginController: LaunchAtLoginController
+    ) {
         self.monitor = monitor
         self.hudController = hudController
+        self.launchAtLoginController = launchAtLoginController
         super.init()
 
         statusItem.button?.image = NSImage(systemSymbolName: "eye.circle", accessibilityDescription: "Awareness")
@@ -29,11 +36,13 @@ final class StatusMenuController: NSObject {
         activityItem.isEnabled = false
         monitoringItem.target = self
         monitoringItem.state = .on
+        openAtStartupItem.target = self
 
         let menu = NSMenu()
         menu.addItem(activityItem)
         menu.addItem(.separator())
         menu.addItem(monitoringItem)
+        menu.addItem(openAtStartupItem)
         menu.addItem(moveItem)
         menu.addItem(.separator())
         menu.addItem(startFocusItem)
@@ -48,6 +57,7 @@ final class StatusMenuController: NSObject {
         statusItem.menu = menu
 
         update(with: monitor.narrative)
+        updateOpenAtStartupItem()
         updateFocusItems()
     }
 
@@ -65,6 +75,19 @@ final class StatusMenuController: NSObject {
     @objc private func toggleMonitoring() {
         monitor.isMonitoring.toggle()
         monitoringItem.state = monitor.isMonitoring ? .on : .off
+    }
+
+    @objc private func toggleOpenAtStartup() {
+        let shouldEnable = openAtStartupItem.state != .on
+        guard launchAtLoginController.setEnabled(shouldEnable) else {
+            let alert = NSAlert()
+            alert.messageText = "Couldn’t Update Open at Startup"
+            alert.informativeText = "Try again, or manage Awareness in System Settings > General > Login Items."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+        updateOpenAtStartupItem()
     }
 
     @objc private func openCommands() {
@@ -177,6 +200,20 @@ final class StatusMenuController: NSObject {
         startFocusItem.isEnabled = !hasActiveFocus
         finishFocusItem.isEnabled = hasActiveFocus
         finishFocusItem.title = monitor.activeFocusIntention.map { "Finish Focus: \($0)" } ?? "Finish Focus Block…"
+    }
+
+    private func updateOpenAtStartupItem() {
+        switch launchAtLoginController.state {
+        case .enabled:
+            openAtStartupItem.state = .on
+            openAtStartupItem.title = "Open at Startup"
+        case .requiresApproval:
+            openAtStartupItem.state = .mixed
+            openAtStartupItem.title = "Open at Startup (Needs Approval)"
+        case .disabled:
+            openAtStartupItem.state = .off
+            openAtStartupItem.title = "Open at Startup"
+        }
     }
 
     private func showFocusError(_ message: String) {

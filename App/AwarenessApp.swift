@@ -4,6 +4,7 @@ import AppKit
 @MainActor
 final class AwarenessApp: NSObject, NSApplicationDelegate {
     private let monitor = ActivityMonitor()
+    private let launchAtLoginController = LaunchAtLoginController()
     private var hudController: HUDWindowController?
     private var statusMenuController: StatusMenuController?
 
@@ -16,10 +17,15 @@ final class AwarenessApp: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        launchAtLoginController.enableByDefaultIfNeeded()
 
         let hud = HUDWindowController()
         hudController = hud
-        let statusMenu = StatusMenuController(monitor: monitor, hudController: hud)
+        let statusMenu = StatusMenuController(
+            monitor: monitor,
+            hudController: hud,
+            launchAtLoginController: launchAtLoginController
+        )
         statusMenuController = statusMenu
         monitor.onNarrativeChange = { [weak hud, weak statusMenu] narrative in
             hud?.update(with: narrative)

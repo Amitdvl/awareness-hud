@@ -30,6 +30,7 @@ Use `./script/build_and_run.sh --verify` to build, launch, and confirm the app p
 - Compact always-visible narrative rendering
 - Always-compact timer-first HUD: shows only the elapsed time and active app or site
 - Content-sized HUD with persisted position and menu-bar Move HUD mode
+- Open at Startup is enabled by default and can be changed from the menu bar
 - AppKit-only runtime surface for lower resident memory and fewer view invalidations
 - Event-driven app, window, and browser-tab switching with a one-second Chrome/Safari fallback poll
 - Smooth, second-accurate elapsed-time updates from a lightweight 250 ms main-queue heartbeat
